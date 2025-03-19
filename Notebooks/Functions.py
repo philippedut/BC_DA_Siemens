@@ -70,3 +70,42 @@ def plot_distribution(sales_data, product_group):
     plt.ylabel("Frequency")
 
     plt.show()
+
+def adf_test(sales_data, product_group):
+    """
+    Perform the Augmented Dickey-Fuller (ADF) test for stationarity on a product group's sales data.
+
+    Args:
+    sales_data (pd.Series): Time series sales data for a single product group.
+    product_group (int): The product group identifier.
+
+    Returns:
+    dict: Contains ADF Statistic, p-value, and critical values.
+    """
+
+    # Run ADF Test
+    adf_result = adfuller(sales_data)
+
+    # Store results
+    result = {
+        'ADF Statistic': adf_result[0],
+        'p-value': adf_result[1],
+        'Critical Values': adf_result[4]
+    }
+
+    # Print results in a structured way
+    print(f"Augmented Dickey-Fuller (ADF) Test - Product Group {product_group}")
+    print(f"ADF Statistic: {adf_result[0]:.6f}")
+    print(f"p-value: {adf_result[1]:.6f}")
+    print("Critical Values:")
+    for key, value in adf_result[4].items():
+        print(f"\t{key}: {value:.3f}")
+
+    if adf_result[1] <= 0.05:
+        print(f"\n✅ The p-value ({adf_result[1]:.6f}) is ≤ 0.05.")
+        print("   We reject the null hypothesis, meaning the data is stationary.\n")
+    else:
+        print(f"\n❌ The p-value ({adf_result[1]:.6f}) is > 0.05.")
+        print("   We fail to reject the null hypothesis, meaning the data is non-stationary.\n")
+
+    return result
