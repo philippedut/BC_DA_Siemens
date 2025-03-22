@@ -109,3 +109,50 @@ def adf_test(sales_data, product_group):
         print("   We fail to reject the null hypothesis, meaning the data is non-stationary.\n")
 
     return result
+
+## featurre selection function 
+def select_features_via_autocorrelation(df, target_col, max_lag=10, threshold=0.2):
+    """
+    Selects features based on their autocorrelation with the target variable.
+
+    Parameters:
+    df (pd.DataFrame): Time series DataFrame.
+    target_col (str): Target variable column name.
+    max_lag (int): Maximum lag to consider for autocorrelation.
+    threshold (float): Minimum absolute ACF value to select a feature.
+
+    Returns:
+    dict: Selected features with a list of lags that passed the threshold.
+    """
+    selected_features_with_lags = {}
+
+    for col in df.columns:
+        if col != target_col:
+            acf_values = acf(df[col], nlags=max_lag, fft=True)
+
+            # Check which lags exceed the threshold (excluding lag 0)
+            relevant_lags = [lag for lag, value in enumerate(acf_values[1:], start=1) if abs(value) > threshold]
+
+            if relevant_lags:
+                selected_features_with_lags[col] = relevant_lags
+
+    return selected_features_with_lags
+
+## model prep function 
+def create_lag_features(df, targets_with_lags):
+    """
+    Adds lag features for multiple target columns, each with custom lag values.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    targets_with_lags (dict): Dictionary where keys are target column names
+                              and values are lists of lag values.
+
+    Returns:
+    pd.DataFrame: DataFrame with new lag features.
+    """
+    df = df.copy()
+    for target_col, lags in targets_with_lags.items():
+        for lag in lags:
+            df[f'{target_col}_lag_{lag}'] = df[target_col].shift(lag)
+    return df
