@@ -8,6 +8,7 @@ import seaborn as sns
 from statsmodels.tsa.seasonal import seasonal_decompose
 from scipy.stats import shapiro
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import acf
 
 def get_sales_by_product_group(df_sales, product_group):
     sales_agg_group = df_sales[df_sales['Mapped_GCK'] == product_group].groupby('DATE')['Sales_EUR'].sum().reset_index()
@@ -111,32 +112,50 @@ def adf_test(sales_data, product_group):
     return result
 
 ## featurre selection function 
-def select_features_via_autocorrelation(df, target_col, max_lag=10, threshold=0.2):
+def select_features_via_autocorrelation(df_target, df_features, target_col, target_date_col='DATE', feature_date_col='date', max_lag=10, threshold=0.2):
     """
-    Selects features based on their autocorrelation with the target variable.
+    Selects exogenous features based on their autocorrelation with the target variable.
 
     Parameters:
-    df (pd.DataFrame): Time series DataFrame.
-    target_col (str): Target variable column name.
+    df_target (pd.DataFrame): DataFrame containing the target variable (e.g. sales).
+    df_features (pd.DataFrame): DataFrame containing the exogenous/market features.
+    target_col (str): Name of the target column in df_target.
+    target_date_col (str): Date column name in df_target.
+    feature_date_col (str): Date column name in df_features.
     max_lag (int): Maximum lag to consider for autocorrelation.
     threshold (float): Minimum absolute ACF value to select a feature.
 
     Returns:
     dict: Selected features with a list of lags that passed the threshold.
     """
+
+    # Convert date columns to datetime
+    df_target[target_date_col] = pd.to_datetime(df_target[target_date_col])
+    df_features[feature_date_col] = pd.to_datetime(df_features[feature_date_col])
+
+    # Merge the two dataframes on the date columns
+    df_combined = pd.merge(df_target[[target_date_col, target_col]], df_features, left_on=target_date_col, right_on=feature_date_col, how='inner')
+
     selected_features_with_lags = {}
 
-    for col in df.columns:
-        if col != target_col:
-            acf_values = acf(df[col], nlags=max_lag, fft=True)
+    for col in df_features.columns:
+        if col not in [feature_date_col]:
+            series = df_combined[col].dropna()
 
-            # Check which lags exceed the threshold (excluding lag 0)
-            relevant_lags = [lag for lag, value in enumerate(acf_values[1:], start=1) if abs(value) > threshold]
+            if not series.empty:
+                acf_values = acf(series, nlags=max_lag, fft=True)
 
-            if relevant_lags:
-                selected_features_with_lags[col] = relevant_lags
+                relevant_lags = [lag for lag, value in enumerate(acf_values[1:], start=1) if abs(value) > threshold]
 
-    return selected_features_with_lags
+                if relevant_lags:
+                    selected_features_with_lags[col] = relevant_lags
+
+    print("Selected Features based on ACF:", selected_features_with_lags)
+    print(f"number of selected features is {len(selected_features_with_lags)}")
+
+    selected_features = list(selected_features_with_lags.keys())
+
+    return selected_features_with_lags, selected_features
 
 ## model prep function 
 def create_lag_features(df, targets_with_lags):
