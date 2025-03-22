@@ -7,8 +7,9 @@ import matplotlib.dates as mdates
 import seaborn as sns
 from statsmodels.tsa.seasonal import seasonal_decompose
 from scipy.stats import shapiro
-from statsmodels.tsa.stattools import adfuller
-from statsmodels.tsa.stattools import acf
+from statsmodels.tsa.stattools import adfuller, acf
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+import statsmodels.api as sm
 
 def get_sales_by_product_group(df_sales, product_group):
     sales_agg_group = df_sales[df_sales['Mapped_GCK'] == product_group].groupby('DATE')['Sales_EUR'].sum().reset_index()
@@ -111,7 +112,129 @@ def adf_test(sales_data, product_group):
 
     return result
 
+def seasonal_decomposition(sales_data, product_group, date_column, period=12):
+    """
+    Performs seasonal decomposition on a product group's sales data without modifying the original dataset.
+
+    Parameters:
+        sales_data (pd.DataFrame): DataFrame containing Date and Sales values.
+        product_group (int): The product group ID for reference.
+        date_column (str): The column name containing date values.
+        period (int): The expected seasonality period (default=12 for monthly data).
+
+    Returns:
+        None (Displays the decomposition plots).
+    """
+    # Perform seasonal decomposition without modifying the original DataFrame
+    decomposition = seasonal_decompose(sales_data.set_index(date_column)['Sales_EUR'], model="additive", period=period)
+
+    # Extract components
+    observed = decomposition.observed
+    trend = decomposition.trend
+    seasonal = decomposition.seasonal
+    resid = decomposition.resid
+
+    # Plot decomposition with correct date-axis
+    fig, axs = plt.subplots(4, 1, figsize=(12, 8), sharex=True)
+
+    axs[0].plot(observed, label="Observed", color="tab:blue")
+    axs[0].legend()
+    
+    axs[1].plot(trend, label="Trend", color="tab:orange")
+    axs[1].legend()
+    
+    axs[2].plot(seasonal, label="Seasonality", color="tab:green")
+    axs[2].legend()
+    
+    axs[3].plot(resid, label="Residuals", color="tab:red")
+    axs[3].legend()
+
+    fig.suptitle(f"Seasonal Decomposition - Product Group {product_group}", fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+def plot_acf_pacf(sales_data, product_group, max_lag=12):
+    """
+    Plots Auto-Correlation (ACF) and Partial Auto-Correlation (PACF) for a product group's sales data.
+    
+    Parameters:
+        sales_data (pd.DataFrame): DataFrame containing Date and Sales values.
+        product_group (int): The product group ID for reference.
+        max_lag (int): Number of lags to display in the plots.
+        
+    Returns:
+        None (Displays ACF, PACF, and Lag Plot).
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    # ACF Plot
+    plot_acf(sales_data['Sales_EUR'], lags=max_lag, zero=False, ax=axes[0])
+    axes[0].set_title(f'ACF - Product Group {product_group}')
+
+    # PACF Plot
+    plot_pacf(sales_data['Sales_EUR'], lags=max_lag, zero=False, ax=axes[1])
+    axes[1].set_title(f'PACF - Product Group {product_group}')
+
+    # Lag Plot (Optional but useful)
+    pd.plotting.lag_plot(sales_data['Sales_EUR'], lag=1, ax=axes[2])
+    axes[2].set_title(f'Lag Plot - Product Group {product_group}')
+
+    plt.tight_layout()
+    plt.show()
+
 ## featurre selection function 
+
+def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column='DATE', date_market_column='date', sales_column='Sales_EUR', max_lag=12, threshold=0.5):
+    """
+    Plots cross-correlation between sales of a product group and each market feature.
+
+    Parameters:
+        sales_df (pd.DataFrame): Aggregated sales data for one product group.
+        market_df (pd.DataFrame): Market data for all time periods.
+        product_group (int): Product group number (used for titles).
+        date_column (str): Common date column name in both dataframes.
+        sales_column (str): Column name containing sales values.
+        max_lag (int): Max number of lags to test.
+        threshold (float): Minimum absolute correlation to consider as relevant.
+
+    Returns:
+        Tuple: 
+        dict: {feature: [correlations by lag]} for relevant features
+        list: names of relevant features with correlation ≥ threshold"""
+    # Temporarily set DATE as index
+    sales_series = sales_df.set_index(date_sales_column)[sales_column]
+    market_df_indexed = market_df.set_index(date_market_column)
+
+    # Align market and sales by DATE
+    aligned_market = market_df_indexed.loc[sales_series.index]
+    lags = np.arange(-max_lag, max_lag + 1)
+
+    relevant_correlations = {}
+    relevant_features = []
+
+    for feature in aligned_market.columns:
+        series = aligned_market[feature]
+        correlations = [sales_series.corr(series.shift(lag)) for lag in lags]
+        max_corr = np.nanmax(np.abs(correlations))
+
+        if max_corr >= threshold:
+            relevant_correlations[feature] = correlations
+            relevant_features.append(feature)
+
+            # Plot
+            plt.figure(figsize=(10, 4))
+            plt.stem(lags, correlations, basefmt="b")
+            plt.title(f"Cross-Correlation with '{feature}' - Product Group {product_group}")
+            plt.xlabel("Lag (months)")
+            plt.ylabel("Correlation")
+            plt.grid(True)
+            plt.show()
+
+    print("Selected Features for Product Group:")
+    print(relevant_features)
+
+    return relevant_correlations, relevant_features
+
 def select_features_via_autocorrelation(df_target, df_features, target_col, target_date_col='DATE', feature_date_col='date', max_lag=10, threshold=0.2):
     """
     Selects exogenous features based on their autocorrelation with the target variable.
