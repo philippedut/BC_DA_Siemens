@@ -207,7 +207,7 @@ def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column
 
     # Align market and sales by DATE
     aligned_market = market_df_indexed.loc[sales_series.index]
-    lags = np.arange(1, max_lag + 1)
+    lags = np.arange(0, max_lag + 1)
 
     relevant_correlations = {}
     relevant_features = []
