@@ -1,0 +1,21 @@
+Region,Index Name,Index Code
+China,Production Index Machinery & Electricals,MAB_ELE_PRO156
+China,Shipments Index Machinery & Electricals,MAB_ELE_SHP156
+France,Shipments Index Machinery & Electricals,MAB_ELE_SHP250
+Japan,Production Index Machinery & Electricals,MAB_ELE_PRO392
+Japan,Shipments Index Machinery & Electricals,MAB_ELE_SHP392
+United Kingdom,Shipments Index Machinery & Electricals,MAB_ELE_SHP826
+United States,Shipments Index Machinery & Electricals,MAB_ELE_SHP840
+World,Price of Base Metals,RohiBASEMET1000_org
+World,Price of Metals  & Minerals,RohiMETMIN1000_org
+World,Price of Natural gas index,RohiNATGAS1000_org
+World,Price of Copper,RohCOPPER1000_org
+United States,EUR in LCU,WKLWEUR840_org
+United States,Electrical equipment,PRI27840_org
+United Kingdom,Electrical equipment,PRI27826_org
+Italy,Electrical equipment,PRI27380_org
+France,Electrical equipment,PRI27250_org
+Germany,Electrical equipment,PRI27276_org
+Japan,Machinery and equipment n.e.c.,PRO28392_org
+World,Electrical equipment,PRO271000_org
+Japan,Electrical equipment,PRO27392_org
