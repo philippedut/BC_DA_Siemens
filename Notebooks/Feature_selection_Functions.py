@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
+import re
 
 def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column='DATE', date_market_column='date', sales_column='Sales_EUR', max_lag=12, threshold=0.5):
     """
@@ -125,3 +126,15 @@ def create_lag_features(df, max_lag):
 
     df.reset_index(inplace=True)
     return df
+
+def extract_unique_index_codes(col_names):
+    seen = set()
+    index_codes = []
+    for name in col_names:
+        match = re.match(r'(.+?_org|.+?)_lag_\d+', name)
+        if match:
+            code = match.group(1)
+            if code not in seen:
+                seen.add(code)
+                index_codes.append(code)
+    return index_codes
