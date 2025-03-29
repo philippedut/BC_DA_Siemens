@@ -105,7 +105,7 @@ def select_features_decision_tree(
 
 def create_lag_features(df, max_lag):
     """
-    Adds lag features for all columns in the DataFrame from lag 1 to max_lag.
+    Adds lag features for all original columns in the DataFrame from lag 1 to max_lag.
 
     Parameters:
     df (pd.DataFrame): Input DataFrame. Must contain a 'date' column.
@@ -117,8 +117,10 @@ def create_lag_features(df, max_lag):
     df = df.copy()
     df.set_index('date', inplace=True)
 
+    original_cols = df.columns.tolist()  # Store original column names
+
     for lag in range(1, max_lag + 1):
-        for col in df.columns:
+        for col in original_cols:
             df[f'{col}_lag_{lag}'] = df[col].shift(lag)
 
     df.reset_index(inplace=True)
