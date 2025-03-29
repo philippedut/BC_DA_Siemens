@@ -105,20 +105,19 @@ def select_features_decision_tree(
 
 
 ## model prep function 
-def create_lag_features(df, targets_with_lags):
+def create_lag_features(df, lags):
     """
-    Adds lag features for multiple target columns, each with custom lag values.
+    Adds lag features for all columns in the DataFrame.
 
     Parameters:
     df (pd.DataFrame): Input DataFrame.
-    targets_with_lags (dict): Dictionary where keys are target column names
-                              and values are lists of lag values.
+    lags (list): List of lag values to apply to all columns.
 
     Returns:
     pd.DataFrame: DataFrame with new lag features.
     """
     df = df.copy()
-    for target_col, lags in targets_with_lags.items():
-        for lag in lags:
-            df[f'{target_col}_lag_{lag}'] = df[target_col].shift(lag)
+    for lag in lags:
+        for col in df.columns:
+            df[f'{col}_lag_{lag}'] = df[col].shift(lag)
     return df
