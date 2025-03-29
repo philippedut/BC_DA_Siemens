@@ -1,16 +1,6 @@
-import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import matplotlib.dates as mdates
-import seaborn as sns
-from statsmodels.tsa.seasonal import seasonal_decompose
-from scipy.stats import shapiro
-from statsmodels.tsa.stattools import adfuller, acf
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-import statsmodels.api as sm
-
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
 
