@@ -9,30 +9,6 @@ from sklearn.metrics import mean_squared_error
 from xgboost import XGBRegressor
 from prophet import Prophet
 
-# preparation
-
-def parse_month_year(date_string):
-    month_map = {
-    "Jan": 1,
-    "Feb": 2,
-    "Mai": 3,
-    "Jun": 6,
-    "Jul": 7,
-    "Aug": 8,
-    "Sep": 9,
-    "Okt": 10,
-    "Nov": 11,
-    "Dez": 12
-    }
-
-    month_abbr = date_string[:3]
-    year_suffix = date_string[-2:]
-    month_num = month_map.get(month_abbr)
-
-    if not month_num:
-        raise ValueError(f"Unknown month abbreviation: {month_abbr}")
-    
-    return datetime.strptime(f"{month_num} 01 {year_suffix}", "%m %d %y").date()
 
 # create features 
 def create_lag_features(df, max_lag):
@@ -273,7 +249,7 @@ def xgboost_forecast(sales_agg, df_market, period=10, params=None):
     y_train = df_train["y"]
 
     # Train model
-    model = xgb.XGBRegressor(**params) if params else xgb.XGBRegressor()
+    model = XGBRegressor(**params) if params else XGBRegressor()
     model.fit(X_train, y_train)
 
     # Prepare future data: last `period` rows of df_market
