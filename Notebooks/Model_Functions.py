@@ -35,22 +35,22 @@ def parse_month_year(date_string):
     return datetime.strptime(f"{month_num} 01 {year_suffix}", "%m %d %y").date()
 
 # create features 
-def create_lag_features(df, targets_with_lags):
+def create_lag_features(df, max_lag):
     """
-    Adds lag features for multiple target columns, each with custom lag values.
+    Adds lag features for all original columns in the DataFrame from lag 1 to max_lag.
 
     Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    targets_with_lags (dict): Dictionary where keys are target column names
-                              and values are lists of lag values.
+    df (pd.DataFrame): Input DataFrame. Must contain a 'date' column.
+    max_lag (int): Maximum lag value to generate features for.
 
     Returns:
     pd.DataFrame: DataFrame with new lag features.
     """
-    df = df.copy()
-    for target_col, lags in targets_with_lags.items():
-        for lag in lags:
-            df[f'{target_col}_lag_{lag}'] = df[target_col].shift(lag)
+    original_cols = df.columns.tolist()  # Store original column names
+
+    for lag in range(1, max_lag + 1):
+        for col in original_cols:
+            df[f'{col}_lag_{lag}'] = df[col].shift(lag)
     return df
 
 # Train_test_split
