@@ -11,10 +11,6 @@ from statsmodels.tsa.stattools import adfuller, acf
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import statsmodels.api as sm
 
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.preprocessing import StandardScaler
-
-
 def get_sales_by_product_group(df_sales, product_group):
     sales_agg_group = df_sales[df_sales['Mapped_GCK'] == product_group].groupby('DATE')['Sales_EUR'].sum().reset_index()
     return sales_agg_group
@@ -211,7 +207,7 @@ def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column
 
     # Align market and sales by DATE
     aligned_market = market_df_indexed.loc[sales_series.index]
-    lags = np.arange(1, max_lag + 1)
+    lags = np.arange(0, max_lag + 1)
 
     relevant_correlations = {}
     relevant_features = []
@@ -239,54 +235,50 @@ def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column
 
     return relevant_correlations, relevant_features
 
-
-def select_features_decision_tree(
-    sales_df, market_df, product_group,
-    date_sales_column='DATE', date_market_column='date',
-    sales_column='Sales_EUR', importance_threshold=0.01, max_depth=4):
+def select_features_via_autocorrelation(df_target, df_features, target_col, target_date_col='DATE', feature_date_col='date', max_lag=10, threshold=0.2):
     """
-    Selects market features for a given product group using Decision Tree Regressor.
-    
+    Selects exogenous features based on their autocorrelation with the target variable.
+
     Parameters:
-        sales_df (pd.DataFrame): Aggregated sales data for the product group.
-        market_df (pd.DataFrame): Market data with matching dates.
-        product_group (int): Product group number for identification.
-        date_column (str): Date column name (should match in both dataframes).
-        sales_column (str): Name of the sales target column.
-        importance_threshold (float): Minimum feature importance to be selected.
-        max_depth (int): Max depth for the decision tree to control overfitting.
+    df_target (pd.DataFrame): DataFrame containing the target variable (e.g. sales).
+    df_features (pd.DataFrame): DataFrame containing the exogenous/market features.
+    target_col (str): Name of the target column in df_target.
+    target_date_col (str): Date column name in df_target.
+    feature_date_col (str): Date column name in df_features.
+    max_lag (int): Maximum lag to consider for autocorrelation.
+    threshold (float): Minimum absolute ACF value to select a feature.
 
     Returns:
-        list: Names of selected features above importance threshold.
+    dict: Selected features with a list of lags that passed the threshold.
     """
-    # Set date as index temporarily
-    sales_df = sales_df.set_index(date_sales_column)
-    market_df = market_df.set_index(date_market_column)
 
-    # Align datasets by date
-    aligned_df = sales_df[[sales_column]].join(market_df, how='inner')
+    # Convert date columns to datetime
+    df_target[target_date_col] = pd.to_datetime(df_target[target_date_col])
+    df_features[feature_date_col] = pd.to_datetime(df_features[feature_date_col])
 
-    # Drop rows with missing values
-    aligned_df.dropna(inplace=True)
+    # Merge the two dataframes on the date columns
+    df_combined = pd.merge(df_target[[target_date_col, target_col]], df_features, left_on=target_date_col, right_on=feature_date_col, how='inner')
 
-    # Split into features and target
-    X = aligned_df.drop(columns=[sales_column])
-    y = aligned_df[sales_column]
+    selected_features_with_lags = {}
 
-    # Fit decision tree
-    model = DecisionTreeRegressor(max_depth=max_depth, random_state=0)
-    model.fit(X, y)
+    for col in df_features.columns:
+        if col not in [feature_date_col]:
+            series = df_combined[col].dropna()
 
-    # Get feature importances
-    importances = pd.Series(model.feature_importances_, index=X.columns)
-    selected_features = importances[importances >= importance_threshold].sort_values(ascending=False)
+            if not series.empty:
+                acf_values = acf(series, nlags=max_lag, fft=True)
 
-    print(f"\nSelected features for Product Group {product_group}:")
-    print(selected_features)
+                relevant_lags = [lag for lag, value in enumerate(acf_values[1:], start=1) if abs(value) > threshold]
 
-    return selected_features.index.tolist()
+                if relevant_lags:
+                    selected_features_with_lags[col] = relevant_lags
 
+    print("Selected Features based on ACF:", selected_features_with_lags)
+    print(f"number of selected features is {len(selected_features_with_lags)}")
 
+    selected_features = list(selected_features_with_lags.keys())
+
+    return selected_features_with_lags, selected_features
 
 ## model prep function 
 def create_lag_features(df, targets_with_lags):

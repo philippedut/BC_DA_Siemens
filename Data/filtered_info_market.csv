@@ -1,21 +1,13 @@
 Region,Index Name,Index Code
 China,Production Index Machinery & Electricals,MAB_ELE_PRO156
 China,Shipments Index Machinery & Electricals,MAB_ELE_SHP156
-France,Production Index Machinery & Electricals,MAB_ELE_PRO250
 France,Shipments Index Machinery & Electricals,MAB_ELE_SHP250
-Germany,Production Index Machinery & Electricals,MAB_ELE_PRO276
-Germany,Shipments Index Machinery & Electricals,MAB_ELE_SHP276
-Italy,Shipments Index Machinery & Electricals,MAB_ELE_SHP380
 Japan,Production Index Machinery & Electricals,MAB_ELE_PRO392
 Japan,Shipments Index Machinery & Electricals,MAB_ELE_SHP392
 Switzerland,Production Index Machinery & Electricals,MAB_ELE_PRO756
-Switzerland,Shipments Index Machinery & Electricals,MAB_ELE_SHP756
-United Kingdom,Production Index Machinery & Electricals,MAB_ELE_PRO826
 United Kingdom,Shipments Index Machinery & Electricals,MAB_ELE_SHP826
 United States,Shipments Index Machinery & Electricals,MAB_ELE_SHP840
-Europe,Shipments Index Machinery & Electricals,MAB_ELE_SHP1100
 World,Price of Base Metals,RohiBASEMET1000_org
-World,Price of Energy,RohiENERGY1000_org
 World,Price of Metals  & Minerals,RohiMETMIN1000_org
 World,Price of Natural gas index,RohiNATGAS1000_org
 World,Price of Copper,RohCOPPER1000_org
@@ -25,15 +17,8 @@ United Kingdom,Electrical equipment,PRI27826_org
 Italy,Electrical equipment,PRI27380_org
 France,Electrical equipment,PRI27250_org
 Germany,Electrical equipment,PRI27276_org
-China,Electrical equipment,PRI27156_org
-United States,Machinery and equipment n.e.c.,PRO28840_org
 Switzerland,Machinery and equipment n.e.c.,PRO28756_org
-United Kingdom,Machinery and equipment n.e.c.,PRO28826_org
 Japan,Machinery and equipment n.e.c.,PRO28392_org
-France,Machinery and equipment n.e.c.,PRO28250_org
-Germany,Machinery and equipment n.e.c.,PRO28276_org
 World,Electrical equipment,PRO271000_org
 Switzerland,Electrical equipment,PRO27756_org
-United Kingdom,Electrical equipment,PRO27826_org
 Japan,Electrical equipment,PRO27392_org
-Germany,Electrical equipment,PRO27276_org
