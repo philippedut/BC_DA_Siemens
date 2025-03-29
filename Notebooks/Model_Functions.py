@@ -172,3 +172,32 @@ def model_evaluation_prophet(X_train, y_train, X_val, y_val, param_grid):
             best_model = model
 
     return best_model, best_params, best_rmse
+
+## select best model 
+
+def select_best_model(model_1, params_1, rmse_1, name_1,
+                      model_2, params_2, rmse_2, name_2):
+    """
+    Compares two models based on RMSE and returns the best one.
+
+    Args:
+        model_1: First trained model
+        params_1: Best parameters for model 1
+        rmse_1: Validation RMSE for model 1
+        name_1: Name of model 1 (e.g. 'Prophet')
+
+        model_2: Second trained model
+        params_2: Best parameters for model 2
+        rmse_2: Validation RMSE for model 2
+        name_2: Name of model 2 (e.g. 'XGBoost')
+
+    Returns:
+        best_model: The model with the lower RMSE
+        best_params: Best parameters for the best model
+        best_rmse: RMSE of the best model
+        best_model_name: Name of the best model
+    """
+    if rmse_1 < rmse_2:
+        return model_1, params_1, rmse_1, name_1
+    else:
+        return model_2, params_2, rmse_2, name_2
