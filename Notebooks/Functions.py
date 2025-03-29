@@ -243,7 +243,7 @@ def plot_cross_correlation(sales_df, market_df, product_group, date_sales_column
 def select_features_decision_tree(
     sales_df, market_df, product_group,
     date_sales_column='DATE', date_market_column='date',
-    sales_column='Sales_EUR', importance_threshold, max_depth):
+    sales_column='Sales_EUR', importance_threshold=0.01, max_depth=4):
     """
     Selects market features for a given product group using Decision Tree Regressor.
     
