@@ -46,12 +46,13 @@ def create_lag_features(df, max_lag):
     Returns:
     pd.DataFrame: DataFrame with new lag features.
     """
-    original_cols = df.columns.tolist()  # Store original column names
+    df_lagging = df.copy()
+    original_cols = df_lagging.columns.tolist()  # Store original column names
 
     for lag in range(1, max_lag + 1):
         for col in original_cols:
-            df[f'{col}_lag_{lag}'] = df[col].shift(lag)
-    return df
+            df_lagging[f'{col}_lag_{lag}'] = df_lagging[col].shift(lag)
+    return df_lagging
 
 # Train_test_split
 
