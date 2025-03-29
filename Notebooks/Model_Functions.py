@@ -118,8 +118,9 @@ def model_evaluation_XGboost(X_train, y_train, X_val, y_val, param_grid):
         model.fit(X_train, y_train)
         y_pred = model.predict(X_val)
         rmse = np.sqrt(mean_squared_error(y_val, y_pred))
+        relative_rmse = rmse / np.mean(y_val)
 
-        print(f"Params: {params} => RMSE: {rmse:.4f}")
+        print(f"Params: {params} => RMSE: {rmse:.4f}, Relative RMSE: {relative_rmse:.4f}")
         
         if rmse < best_rmse:
             best_rmse = rmse
@@ -164,8 +165,9 @@ def model_evaluation_prophet(X_train, y_train, X_val, y_val, param_grid):
         y_pred = forecast['yhat'][-len(val_df):].values
         y_true = val_df['y'].values
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        relative_rmse = rmse / np.mean(y_true)
+        print(f"Params: {params} => RMSE: {rmse:.4f}, Relative RMSE: {relative_rmse:.4f}")
 
-        print(f"Params: {params} => RMSE: {rmse:.4f}")
         
         if rmse < best_rmse:
             best_rmse = rmse
@@ -202,3 +204,95 @@ def select_best_model(model_1, params_1, rmse_1, name_1,
         return model_1, params_1, rmse_1, name_1
     else:
         return model_2, params_2, rmse_2, name_2
+    
+## forecast function 
+
+def prophet_forecast(sales_agg, df_market, param=None, period=10):
+    # Rename columns for Prophet
+    sales_agg = sales_agg.reset_index().rename(columns={"DATE": "ds", "Sales_EUR": "y"})
+    df_market = df_market.reset_index().rename(columns={"date": "ds"})
+
+    # Ensure datetime format
+    sales_agg["ds"] = pd.to_datetime(sales_agg["ds"])
+    df_market["ds"] = pd.to_datetime(df_market["ds"])
+
+    # Merge historical data with market data
+    df_train = pd.merge(sales_agg, df_market, on="ds", how="inner")
+
+    # Initialize Prophet
+    model = Prophet(**param) if param else Prophet()
+
+    # Add market regressors
+    for col in df_market.columns:
+        if col != "ds":
+            model.add_regressor(col)
+
+    # Fit model
+    model.fit(df_train)
+
+    # Prepare future dataframe (last 10 rows from df_market)
+    df_future = df_market.sort_values("ds").tail(period).copy()
+
+    # Predict
+    forecast = model.predict(df_future)
+
+    # Return only relevant columns
+    results = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+
+    # Plot
+    plt.figure(figsize=(12, 6))
+    plt.plot(sales_agg["ds"], sales_agg["y"], label="Historical Sales")
+    plt.plot(results["ds"], results["yhat"], label="Forecast", color="red")
+    plt.fill_between(results["ds"], results["yhat_lower"], results["yhat_upper"], color='red', alpha=0.2)
+    plt.title("10-Month Sales Forecast with Prophet")
+    plt.xlabel("Date")
+    plt.ylabel("Sales")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    results
+
+    return results[["ds", "yhat"]]
+
+def xgboost_forecast(sales_agg, df_market, period=10, params=None):
+    # Prepare input data
+    sales_agg = sales_agg.reset_index().rename(columns={"DATE": "ds", "Sales_EUR": "y"})
+    df_market = df_market.reset_index().rename(columns={"date": "ds"})
+
+    # Ensure datetime format
+    sales_agg["ds"] = pd.to_datetime(sales_agg["ds"])
+    df_market["ds"] = pd.to_datetime(df_market["ds"])
+
+    # Merge to get training set
+    df_train = pd.merge(sales_agg, df_market, on="ds", how="inner")
+
+    # Define features and target
+    feature_cols = [col for col in df_market.columns if col != "ds"]
+    X_train = df_train[feature_cols]
+    y_train = df_train["y"]
+
+    # Train model
+    model = xgb.XGBRegressor(**params) if params else xgb.XGBRegressor()
+    model.fit(X_train, y_train)
+
+    # Prepare future data: last `period` rows of df_market
+    df_future = df_market.sort_values("ds").tail(period).copy()
+    X_future = df_future[feature_cols]
+
+    # Predict
+    y_pred = model.predict(X_future)
+    df_future["yhat"] = y_pred
+
+    # Plot
+    plt.figure(figsize=(12, 6))
+    plt.plot(sales_agg["ds"], sales_agg["y"], label="Historical Sales", color="blue")
+    plt.plot(df_future["ds"], df_future["yhat"], label="Forecast", color="red")
+    plt.title("10-Month Sales Forecast with XGBoost")
+    plt.xlabel("Date")
+    plt.ylabel("Sales")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return df_future[["ds", "yhat"]]
