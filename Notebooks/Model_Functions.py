@@ -217,7 +217,7 @@ def model_evaluation_prophet(X_train, y_train, X_val, y_val, param_grid):
 
 def select_best_model(model_1, params_1, rmse_1, name_1,
                       model_2, params_2, rmse_2, name_2,
-                      model_3, params_3, rmse_3, name_3):
+                      model_3 = None, params_3 = None, rmse_3 = 30000000000000000000000000000, name_3 = None):
     """
     Compares two models based on RMSE and returns the best one.
 
