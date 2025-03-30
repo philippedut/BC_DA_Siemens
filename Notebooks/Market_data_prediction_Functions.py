@@ -183,6 +183,97 @@ def specific_single_forecast_market_features_prophet(market_df, best_params_dict
     
     return forecasts
 
+def specific_single_forecast_market_features_prophet_with_covid_and_ukraine(market_df, best_params_dict, date_column='date', forecast_horizon=10, plot=True):
+    """
+    Forecasts every feature in market_df for the next forecast_horizon periods using Prophet.
+    For each feature, the model uses the best hyperparameters provided in best_params_dict,
+    incorporating dynamically generated external regressors for COVID and Ukraine war events.
+    
+    Parameters:
+        market_df (pd.DataFrame): Market data with a datetime column and numeric features.
+        best_params_dict (dict): Dictionary mapping each feature to its grid search results.
+                                 Expected format: { feature_name: {'best_params': { 'seasonality_mode': str, 
+                                                                                   'changepoint_prior_scale': float },
+                                                                   'best_rmse': float,
+                                                                   'param_results': [...] } }
+        date_column (str): Name of the datetime column.
+        forecast_horizon (int): Number of future periods to forecast.
+        plot (bool): Whether to plot the forecast for each feature.
+    
+    Returns:
+        dict: Mapping of each feature to a DataFrame of forecasted values.
+              Each DataFrame has an index of dates and a 'yhat' column.
+    """
+    forecasts = {}
+
+    # Prepare the DataFrame
+    df = market_df.copy()
+    df[date_column] = pd.to_datetime(df[date_column])
+    df = df.set_index(date_column).asfreq("MS")
+
+    # Define event periods
+    covid_start, covid_end = pd.Timestamp("2020-03-01"), pd.Timestamp("2022-05-11")
+    ukraine_start, ukraine_end = pd.Timestamp("2023-12-31"), pd.Timestamp("2023-12-31")
+
+    # Add binary event flags
+    df['covid'] = ((df.index >= covid_start) & (df.index <= covid_end)).astype(int)
+    df['ukraine_war'] = ((df.index >= ukraine_start) & (df.index <= ukraine_end)).astype(int)
+
+    # Forecast each feature
+    for feature in df.columns.difference(['covid', 'ukraine_war']):
+        series = df[feature].dropna()
+
+        # Prepare data for Prophet
+        df_prophet = pd.DataFrame({
+            'ds': series.index,
+            'y': series.values,
+            'covid': df['covid'].reindex(series.index).fillna(0).astype(int),
+            'ukraine_war': df['ukraine_war'].reindex(series.index).fillna(0).astype(int)
+        })
+
+        # Retrieve best hyperparameters
+        if feature in best_params_dict and best_params_dict[feature] is not None and best_params_dict[feature]['best_params'] is not None:
+            best_params = best_params_dict[feature]['best_params']
+        else:
+            best_params = {'seasonality_mode': 'multiplicative', 'changepoint_prior_scale': 0.5}
+
+        # Initialize and fit Prophet model
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            seasonality_mode=best_params['seasonality_mode'],
+            changepoint_prior_scale=best_params['changepoint_prior_scale']
+        )
+        model.add_regressor('covid')
+        model.add_regressor('ukraine_war')
+        model.fit(df_prophet)
+
+        # Create future DataFrame (past + forecast horizon)
+        future = model.make_future_dataframe(periods=forecast_horizon, freq='MS')
+        future['covid'] = ((future['ds'] >= covid_start) & (future['ds'] <= covid_end)).astype(int)
+        future['ukraine_war'] = ((future['ds'] >= ukraine_start) & (future['ds'] <= ukraine_end)).astype(int)
+
+        # Generate forecast
+        forecast = model.predict(future)
+        forecast_feature = forecast[['ds', 'yhat']].set_index('ds').iloc[-forecast_horizon:]
+        forecasts[feature] = forecast_feature
+
+        # Optional plot
+        if plot:
+            plt.figure(figsize=(10, 4))
+            plt.plot(df_prophet['ds'], df_prophet['y'], label='History')
+            plt.plot(forecast['ds'], forecast['yhat'], label='Forecast', linestyle='--')
+            plt.title(f"Forecast for '{feature}' using best hyperparameters")
+            plt.xlabel("Date")
+            plt.ylabel("Value")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+
+    return forecasts
+
 ## extract the prediction 
 def append_forecasts_to_market_df(market_df, forecasts, date_column='date'):
     """
