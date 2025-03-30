@@ -1,4 +1,5 @@
 import os
+import itertools
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,9 +7,9 @@ from datetime import datetime
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 import itertools
 from sklearn.metrics import mean_squared_error
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from xgboost import XGBRegressor
 from prophet import Prophet
-
 
 # create features 
 def create_lag_features(df, max_lag):
@@ -62,6 +63,66 @@ def train_val_split(df_target, df_market, target_column = "Sales_EUR" ,train_siz
     return X_train, X_val, y_train, y_val
 
 ## Model Functions
+
+def model_evaluation_SARIMA(y_train, y_val, param_grid):
+    """
+    Performs manual grid search for SARIMA using a validation set.
+
+    Parameters:
+    - y_train: training time series (1D array-like)
+    - y_val: validation time series (1D array-like)
+    - param_grid: dictionary with keys 'p', 'd', 'q', 'P', 'D', 'Q', 's'
+
+    Returns:
+    - best_model: fitted SARIMA model with best parameters
+    - best_params: dictionary of best (p,d,q)(P,D,Q,s) configuration
+    - best_rmse: RMSE on validation set
+    """
+    best_rmse = float('inf')
+    best_params = None
+    best_model = None
+
+    # Extract parameter values
+    p_values = param_grid.get('p', [0])
+    d_values = param_grid.get('d', [0])
+    q_values = param_grid.get('q', [0])
+    P_values = param_grid.get('P', [0])
+    D_values = param_grid.get('D', [0])
+    Q_values = param_grid.get('Q', [0])
+    s_values = param_grid.get('s', [0])
+
+    # Loop over all combinations
+    for p, d, q, P, D, Q, s in itertools.product(p_values, d_values, q_values, P_values, D_values, Q_values, s_values):
+        try:
+            model = SARIMAX(
+                y_train,
+                order=(p, d, q),
+                seasonal_order=(P, D, Q, s),
+                enforce_stationarity=False,
+                enforce_invertibility=False
+            )
+            model_fit = model.fit(disp=False)
+
+            forecast = model_fit.forecast(steps=len(y_val))
+
+            rmse = np.sqrt(mean_squared_error(y_val, forecast))
+            relative_rmse = rmse / np.mean(y_val)
+
+            print(f"SARIMA({p},{d},{q}) x ({P},{D},{Q},{s}) => RMSE: {rmse:.4f}, Relative RMSE: {relative_rmse:.4f}")
+
+            if rmse < best_rmse:
+                best_rmse = rmse
+                best_params = {
+                    'order': (p, d, q),
+                    'seasonal_order': (P, D, Q, s)
+                }
+                best_model = model_fit
+
+        except Exception as e:
+            print(f"SARIMA({p},{d},{q}) x ({P},{D},{Q},{s}) failed: {e}")
+
+    return best_model, best_params, best_rmse
+
 
 def model_evaluation_XGboost(X_train, y_train, X_val, y_val, param_grid):
     """
@@ -155,7 +216,8 @@ def model_evaluation_prophet(X_train, y_train, X_val, y_val, param_grid):
 ## select best model 
 
 def select_best_model(model_1, params_1, rmse_1, name_1,
-                      model_2, params_2, rmse_2, name_2):
+                      model_2, params_2, rmse_2, name_2,
+                      model_3, params_3, rmse_3, name_3):
     """
     Compares two models based on RMSE and returns the best one.
 
@@ -178,8 +240,10 @@ def select_best_model(model_1, params_1, rmse_1, name_1,
     """
     if rmse_1 < rmse_2:
         return model_1, params_1, rmse_1, name_1
-    else:
+    elif rmse_2 < rmse_3:
         return model_2, params_2, rmse_2, name_2
+    else:
+        return model_3, params_3, rmse_3, name_3
     
 ## forecast function 
 
@@ -272,3 +336,69 @@ def xgboost_forecast(sales_agg, df_market, period=10, params=None):
     plt.show()
 
     return df_future[["ds", "yhat"]]
+
+def sarima_forecast(sales_agg, params, period=10):
+    """
+    Forecast sales using SARIMA based on best_params from grid search.
+
+    Parameters:
+        sales_agg (pd.DataFrame): DataFrame with ['DATE', 'Sales_EUR']
+        params (dict): Dict with keys 'order' and 'seasonal_order' (each a tuple)
+        period (int): Number of periods to forecast
+
+    Returns:
+        forecast_df (pd.DataFrame): DataFrame with forecasted 'yhat' and 'ds' dates
+    """
+    order = params['order']
+    seasonal_order = params['seasonal_order']
+
+    # Prepare time series
+    sales_agg = sales_agg.copy()
+    sales_agg = sales_agg.reset_index()
+    sales_agg["DATE"] = pd.to_datetime(sales_agg["DATE"])
+    sales_agg.set_index("DATE", inplace=True)
+    y = sales_agg["Sales_EUR"]
+
+    # Fit SARIMA model
+    model = SARIMAX(
+        y,
+        order=order,
+        seasonal_order=seasonal_order,
+        enforce_stationarity=False,
+        enforce_invertibility=False
+    )
+    model_fit = model.fit(disp=False)
+
+    # Generate future dates
+    freq = pd.infer_freq(y.index) or "MS"
+    future_dates = pd.date_range(start=y.index[-1] + pd.tseries.frequencies.to_offset(freq),
+                                 periods=period, freq=freq)
+
+    # Forecast
+    forecast_result = model_fit.get_forecast(steps=period)
+    forecast_mean = forecast_result.predicted_mean
+    conf_int = forecast_result.conf_int()
+
+    # Create forecast DataFrame
+    forecast_df = pd.DataFrame({
+        "ds": future_dates,
+        "yhat": forecast_mean.values,
+        "yhat_lower": conf_int.iloc[:, 0].values,
+        "yhat_upper": conf_int.iloc[:, 1].values
+    })
+
+    # Plot
+    plt.figure(figsize=(12, 6))
+    plt.plot(y.index, y, label="Historical Sales")
+    plt.plot(forecast_df["ds"], forecast_df["yhat"], color="red", label="Forecast")
+    plt.fill_between(forecast_df["ds"], forecast_df["yhat_lower"], forecast_df["yhat_upper"], color="red", alpha=0.2)
+    plt.title(f"{period}-Month Sales Forecast with SARIMA{order + seasonal_order}")
+    plt.xlabel("Date")
+    plt.ylabel("Sales")
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+    return forecast_df[["ds", "yhat"]]
+
+
