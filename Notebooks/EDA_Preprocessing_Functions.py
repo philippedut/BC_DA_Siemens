@@ -66,7 +66,7 @@ def plot_distribution(sales_data, product_group):
     plt.figure(figsize=(8, 5))
 
     # Histogram & KDE
-    sns.histplot(sales_data, bins=30, kde=True, color="blue")
+    sns.histplot(sales_data, bins=30, kde=True, color='#BED62F')
     plt.title(f"Histogram & KDE - Product Group {product_group}")
     plt.xlabel("Sales (€)")
     plt.ylabel("Frequency")
